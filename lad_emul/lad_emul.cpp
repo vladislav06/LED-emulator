@@ -44,13 +44,11 @@ string printIp(Address adress) {
 
 
 void addParser(uint8_t id, int (*parser)(uint8_t data[], int length)) {
-
 	parsers[id] = parser;
 }
 
 
 int ack(uint8_t data[], int lenght) {
-
 	if (lenght != 3)
 		return 1;
 	if ((data[2] == 1)) {
@@ -122,14 +120,11 @@ int def(uint8_t data[], int lenght) {
 
 int main()
 {
-
 	uint8_t bufer[20];
-
 	int length = 0;
 
-	memset(bufer, 0, 20);//init buffer
-	//memset(parsers, (int)&def, sizeof(parsers));
 
+	memset(bufer, 0, 20);//init buffer
 	//init parsers
 	for (int i = 0; i < 255; i++) {
 		parsers[i] = &def;
@@ -140,8 +135,6 @@ int main()
 	addParser(2, &eff2);
 	addParser(3, &eff3);
 
-
-
 	sck.Open(1111);
 	sck.NonBlock();
 
@@ -150,11 +143,9 @@ int main()
 		length = sck.Receive(source, bufer, 20);
 		if (bufer[0] != protocolVerison)
 			continue;
-
 		//call apropriate parser and check for return code
 		if (parsers[bufer[1]](bufer, length) != 0) {
 			cout << "error ocured while parsing a packet!\n";
 		}
 	}
-
 }
