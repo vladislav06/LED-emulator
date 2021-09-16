@@ -1,5 +1,5 @@
 
 .vs
 lad_emul/Debug/
-*.ilk
-*.pdb
+Debug/lad_emul.pdb
+Debug/lad_emul.ilk
