@@ -14,10 +14,31 @@ Socket sck;
 uint8_t protocolVerison = 170;
 
 uint8_t ackOK[]{ protocolVerison, 254,1 };
-uint8_t ackEF[]{ protocolVerison, 250,1 };
+uint8_t id[]{ protocolVerison, 246,255,255,255,255,128,128 };
+uint8_t deviceName[]{ protocolVerison, 245,116,101,115,116};//test
+uint8_t ledLenght[]{ protocolVerison, 247,60 };
+/*
+uint8_t deviceHierarchy[]{ protocolVerison, 244, //init
+					 51,  52,  53,  //group name
+					 14,  //group name stop byte
+					 255,  144,  144,  144,  144,  0, //device id,s
+					 255,  144,  144,  144,  144,  1,
+					 255,  144,  144,  144,  144,  2,
+					 255,  144,  144,  144,  144,  3,
+					 255,  144,  144,  144,  144,  4,
+					 170,  170,//stop bytes for device id's
+					 54,  55,  56,  //group name
+					 14,  //group name stop byte
+					 255,  144,  144,  144,  145,  0, //device id,s
+					 255,  144,  144,  144,  145,  1,
+					 170,  170, };//stop bytes for device id's
+					 */
+uint8_t deviceHierarchy[]{ protocolVerison, 244 }; //init
+uint8_t datACK[]{ protocolVerison, 250,1 };
 uint8_t latestEF1[]{ protocolVerison, 1,255,128,128,140 };//170.1.r.g.b.w
 uint8_t latestEF2[]{ protocolVerison, 2,40,255 };//170.1.r.g.b.w
 uint8_t latestEF3[]{ protocolVerison, 3,255,128,128,0,34,150,10,255 };//170.1.r.g.b.w.r.g.b.w
+uint8_t latestGroup[]{ protocolVerison, 3,244,128,128,0,34,150,10,255 };//170.1.r.g.b.w.r.g.b.w
 
 int (*parsers[256])(uint8_t data[], int length);
 
@@ -58,11 +79,40 @@ int ack(uint8_t data[], int lenght) {
 	return 0;
 }
 
+int idReq(uint8_t data[], int lenght) {
+	if (lenght != 2)
+		return 1;
+
+	sck.Send(source, id, sizeof(id));
+	cout << "idReq  " << printIp(source) << endl;
+
+	return 0;
+}
+
+int name(uint8_t data[], int lenght) {
+	if (lenght != 2)
+		return 1;
+
+	sck.Send(source, deviceName, sizeof(deviceName));
+	cout << "name  " << printIp(source) << endl;
+
+	return 0;
+}
+
+int ledCount(uint8_t data[], int lenght) {
+	if (lenght != 2)
+		return 1;
+
+	sck.Send(source, ledLenght, sizeof(ledLenght));
+	cout << "ledCount  " << printIp(source) << endl;
+
+	return 0;
+}
 
 int eff1(uint8_t data[], int lenght) {
 	//recive data
 	if (lenght == 6) {
-		sck.Send(source, ackEF, sizeof(ackEF));
+		sck.Send(source, datACK, sizeof(datACK));
 		cout << "data " << printIp(source) << " = ";
 		print(data, 4);
 		//latestEF1 state
@@ -79,7 +129,7 @@ int eff1(uint8_t data[], int lenght) {
 int eff2(uint8_t data[], int lenght) {
 	//recive data
 	if (lenght == 4) {
-		sck.Send(source, ackEF, sizeof(ackEF));
+		sck.Send(source, datACK, sizeof(datACK));
 		cout << "data " << printIp(source) << " = ";
 		print(data, 2);
 		//remember state
@@ -96,7 +146,7 @@ int eff2(uint8_t data[], int lenght) {
 int eff3(uint8_t data[], int lenght) {
 	//receive data
 	if (lenght == 10) {
-		sck.Send(source, ackEF, sizeof(ackEF));
+		sck.Send(source, datACK, sizeof(datACK));
 		cout << "data " << printIp(source) << " = ";
 		print(data, lenght);
 		memcpy(latestEF3, data, sizeof(latestEF3));
@@ -108,6 +158,26 @@ int eff3(uint8_t data[], int lenght) {
 	}
 
 	return 0;
+}
+int deviceGroup(uint8_t data[], int lenght) {
+	if (lenght == 2)
+	{
+		sck.Send(source, deviceHierarchy, sizeof(deviceHierarchy));
+		cout << "req  " << printIp(source) << " = group list\n";
+		return 0;
+	}
+
+	//memcpy(deviceHierarchy, data, lenght);
+	print(data, lenght);
+	return 0;
+}
+int connectAllDevices(uint8_t data[], int lenght) {
+	if (lenght == 2)
+	{
+		sck.Send(source, datACK, sizeof(datACK));
+		cout << "req  " << printIp(source) << " = connect all devices\n";
+		return 0;
+	}
 }
 
 
@@ -131,6 +201,11 @@ int main()
 	}
 	//add parsers
 	addParser(254, &ack);
+	addParser(244, &deviceGroup);
+	addParser(247, &ledCount);
+	addParser(246, &idReq);
+	addParser(245, &name);
+	addParser(241, &connectAllDevices);
 	addParser(1, &eff1);
 	addParser(2, &eff2);
 	addParser(3, &eff3);
@@ -139,13 +214,15 @@ int main()
 	sck.NonBlock();
 
 	while (true) {
-		memset(bufer, 0, 20);//null buffer
+		memset(bufer, 0, 50);//null buffer
 		length = sck.Receive(source, bufer, 20);
 		if (bufer[0] != protocolVerison)
 			continue;
 		//call apropriate parser and check for return code
+		//cout << (int)bufer[1] << endl;
 		if (parsers[bufer[1]](bufer, length) != 0) {
-			cout << "error ocured while parsing a packet!\n";
+			cout << "error ocured while parsing a packet!:\n";
+
 		}
 	}
 }
