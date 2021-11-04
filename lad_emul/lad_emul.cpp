@@ -15,7 +15,7 @@ uint8_t protocolVerison = 170;
 
 uint8_t ackOK[]{ protocolVerison, 254,1 };
 uint8_t id[]{ protocolVerison, 246,255,255,255,255,128,128 };
-uint8_t deviceName[]{ protocolVerison, 245,116,101,115,116};//test
+uint8_t deviceName[]{ protocolVerison, 245,116,101,115,116 };//test
 uint8_t ledLenght[]{ protocolVerison, 247,60 };
 /*
 uint8_t deviceHierarchy[]{ protocolVerison, 244, //init
@@ -44,8 +44,8 @@ int (*parsers[256])(uint8_t data[], int length);
 
 
 void print(uint8_t data[], int length) {
-	length += 2;
-	for (int i = 2; i < length; i++) {
+	//length += 2;
+	for (int i = 0; i < length; i++) {
 		cout << (int)data[i] << "|";
 	}
 	cout << endl;
@@ -171,6 +171,7 @@ int deviceGroup(uint8_t data[], int lenght) {
 	print(data, lenght);
 	return 0;
 }
+
 int connectAllDevices(uint8_t data[], int lenght) {
 	if (lenght == 2)
 	{
@@ -179,6 +180,37 @@ int connectAllDevices(uint8_t data[], int lenght) {
 		return 0;
 	}
 }
+int inet(uint8_t data[], int lenght) {
+	if (data[2] == 1) {
+		cout << "inet  " << printIp(source) << " = SSID: ";
+		for (int i = 3; i < lenght; i++) {
+			cout << (char)data[i];
+		}
+		cout << endl;
+		sck.Send(source, datACK, sizeof(datACK));
+		return 0;
+	}
+	if (data[2] == 0) {
+		cout << "inet  " << printIp(source) << " = pass: ";
+		for (int i = 3; i < lenght; i++) {
+			cout << (char)data[i];
+		}
+		cout << endl;
+		sck.Send(source, datACK, sizeof(datACK));
+		return 0;
+	}
+
+	return 1;
+}
+
+int inetMode(uint8_t data[], int lenght) {
+	if (lenght == 3) {
+		sck.Send(source, datACK, sizeof(datACK));
+		cout << "req  " << printIp(source) << " = inet mode: " << (int)data[2] << endl;
+		return 0;
+	}
+}
+
 
 
 int def(uint8_t data[], int lenght) {
@@ -206,6 +238,8 @@ int main()
 	addParser(246, &idReq);
 	addParser(245, &name);
 	addParser(241, &connectAllDevices);
+	addParser(253, &inetMode);
+	addParser(252, &inet);
 	addParser(1, &eff1);
 	addParser(2, &eff2);
 	addParser(3, &eff3);
@@ -222,7 +256,7 @@ int main()
 		//cout << (int)bufer[1] << endl;
 		if (parsers[bufer[1]](bufer, length) != 0) {
 			cout << "error ocured while parsing a packet!:\n";
-
+			print(bufer, length);
 		}
 	}
 }
